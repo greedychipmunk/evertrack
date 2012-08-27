@@ -47,7 +47,7 @@ new = function ()
 	
 	local background = display.newImage( "track-bg.png" )
 	local title = display.newRetinaText( "What to Track?", 0, 0, native.systemFontBold, 34 )
-	local searchTextField = native.newTextField( 0, 0, 585, 63 )
+	--local searchTextField = native.newTextField( 0, 0, 585, 63 )
 	--DNFL calculate height
 	local buttonBackground = display.newRoundedRect( 30, 370, 580, 485, 15 )
 	buttonBackground:setFillColor( 51, 51, 51 )
@@ -109,15 +109,15 @@ new = function ()
 		localGroup:insert( background )
 		localGroup:insert( buttonBackground )
 		localGroup:insert( title )
-		localGroup:insert( searchTextField )
+		--localGroup:insert( searchTextField )
 		localGroup:insert( newCatButton )
 		
 		title.x = 320
 		title.y = 90
 		
-		searchTextField.x = 320
-		searchTextField.y = 205
-		searchTextField.hasBackground = false
+		--searchTextField.x = 320
+		--searchTextField.y = 205
+		--searchTextField.hasBackground = false
 		
 		newCatButton.x = 320
 		newCatButton.y = 300

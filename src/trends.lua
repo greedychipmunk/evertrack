@@ -47,9 +47,69 @@ new = function ()
 	buttonBackground:setStrokeColor( 136, 136, 136 )
 	buttonBackground.strokeWidth = 2
 	
+	------------------
+	-- DYNAMIC LABELS
+	------------------
+	
 	local fromDate  = display.newRetinaText( "From:", 50, 180, native.systemFontBold, 34 )
 	local toDate    = display.newRetinaText( "To:", 50, 260, native.systemFontBold, 34 )
+	
 	local needDates = display.newRetinaText( "Please select a date range", 50, 390, native.systemFont, 30 )
+	local noDataForDateRange = display.newRetinaText( "There is nothing tracked!!!", 50, 390, native.systemFont, 30 )
+	noDataForDateRange.isVisible = false
+	
+	local totalEventDisplayLabel = display.newRetinaText( "Total:", 50, 390, native.systemFont, 30 )
+	totalEventDisplayLabel.isVisible = false
+	local totalEventDisplayText = display.newRetinaText ( "", 550, 390, native.systemFont, 30 )
+	totalEventDisplayText.isVisible = false
+	
+	local dayRangeDisplayLabel = display.newRetinaText( "# of days:", 50, 440, native.systemFont, 30 )
+	dayRangeDisplayLabel.isVisible = false
+	local dayRangeDisplayText = display.newRetinaText( "", 550, 440, native.systemFont, 30 )
+	dayRangeDisplayText.isVisible = false
+	
+	local avgPerDayDisplayLabel = display.newRetinaText( "Average Per Day:", 50, 490, native.systemFont, 30 )
+	avgPerDayDisplayLabel.isVisible = false
+	local avgPerDayDisplayText = display.newRetinaText( "", 550, 490, native.systemFont, 30 )
+	avgPerDayDisplayText.isVisible = false
+	
+	local avgPerWeekDisplayLabel = display.newRetinaText( "Average Per Week:", 50, 540, native.systemFont, 30 )
+	avgPerWeekDisplayLabel.isVisible = false
+	local avgPerWeekDisplayText = display.newRetinaText( "", 550, 540, native.systemFont, 30 )
+	avgPerWeekDisplayText.isVisible = false
+	
+	local avgPerMonthDisplayLabel = display.newRetinaText( "Average Per Month:", 50, 590, native.systemFont, 30 )
+	avgPerMonthDisplayLabel.isVisible = false
+	local avgPerMonthDisplayText = display.newRetinaText( "", 550, 590, native.systemFont, 30 )
+	avgPerMonthDisplayText.isVisible = false
+	
+	local avgPerYearDisplayLabel = display.newRetinaText( "Average Per Year:", 50, 640, native.systemFont, 30 )
+	avgPerYearDisplayLabel.isVisible = false
+	local avgPerYearDisplayText = display.newRetinaText( "", 550, 640, native.systemFont, 30 )
+	avgPerYearDisplayText.isVisible = false
+	
+	-----------------------
+	-- CALCULATED VARIABLES
+	-----------------------
+	
+	local itemCount   = 0
+	local secondRange = 0	
+	local daysRange = 0
+	
+	local qRows = {}
+	
+	local toDateObject = {}
+	local fromDateObject = {}
+	local populateOnce = true
+
+	local avgItemPerDay   = 0
+	local avgItemPerWeek  = 0
+	local avgItemPerMonth = 0
+	local avgItemPerYear  = 0
+	
+	------------------------
+	-- STATIC VARIABLES
+	------------------------
 	
 	local pinWheelData = {}
 	pinWheelData[1] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec" }
@@ -106,10 +166,6 @@ new = function ()
 	toPickerGroup:insert( toPickerBar )
 	toPickerGroup.isVisible = false
 	
-	local toDateObject = {}
-	local fromDateObject = {}
-	local populateOnce = true
-	
 	------------------
 	-- Functions
 	------------------
@@ -151,6 +207,80 @@ new = function ()
 		
 	end
 	
+	-----------------------
+	-- UTILITY FUNCTIONS
+	-----------------------
+	
+	-- from sam_lie
+	-- Compatible with Lua 5.0 and 5.1.
+	-- Disclaimer : use at own risk especially for hedge fund reports :-)
+	
+	---============================================================
+	-- add comma to separate thousands
+	-- 
+	function comma_value(amount)
+	  local formatted = amount
+	  while true do  
+		formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
+		if (k==0) then
+		  break
+		end
+	  end
+	  return formatted
+	end
+	
+	---============================================================
+	-- rounds a number to the nearest decimal places
+	--
+	function round(val, decimal)
+	  if (decimal) then
+		return math.floor( (val * 10^decimal) + 0.5) / (10^decimal)
+	  else
+		return math.floor(val+0.5)
+	  end
+	end
+	
+	--===================================================================
+	-- given a numeric value formats output with comma to separate thousands
+	-- and rounded to given decimal places
+	--
+	--
+
+	function format_num(amount, decimal, prefix, neg_prefix)
+		local str_amount,  formatted, famount, remain
+		
+		decimal = decimal or 2  -- default 2 decimal places
+		neg_prefix = neg_prefix or "-" -- default negative sign
+		
+		famount = math.abs(round(amount,decimal))
+		famount = math.floor(famount)
+		
+		remain = round(math.abs(amount) - famount, decimal)
+		
+			-- comma to separate the thousands
+		formatted = comma_value(famount)
+		
+			-- attach the decimal portion
+		if (decimal > 0) then
+			remain = string.sub(tostring(remain),3)
+			formatted = formatted .. "." .. remain .. string.rep("0", decimal - string.len(remain))
+		end
+		
+		-- attach prefix string e.g '$' 
+		formatted = (prefix or "") .. formatted 
+		
+		-- if value is negative then format accordingly
+		if (amount<0) then
+			if (neg_prefix=="()") then
+				formatted = "("..formatted ..")"
+			else
+				formatted = neg_prefix .. formatted 
+			end
+		end
+		
+		return formatted
+	end
+	
 	function explode(div,str)
 		if (div=='') then return false end
 		local pos,arr = 0,{}
@@ -165,36 +295,95 @@ new = function ()
 	  	return arr
 	end
 	
+	-----------------------
+	-- METRIC CALCULATORS
+	-----------------------
+	
+	local calcMetrics = function()
+		print( "secondRange: " .. secondRange )
+		needDates.isVisible = false
+		
+		print( "itemCount: " .. itemCount )
+		totalEventDisplayText.text = itemCount
+		totalEventDisplayText.isVisible = true
+		totalEventDisplayLabel.isVisible = true
+		
+		daysRange = math.floor( ( ( secondRange / 60 ) / 60 ) / 24 )
+		print( "daysRange: " .. daysRange )
+		dayRangeDisplayText.text  = daysRange
+		dayRangeDisplayText.isVisible = true
+		dayRangeDisplayLabel.isVisible = true
+		
+		avgItemPerDay = itemCount / daysRange
+		print( "avgItemPerDay: " .. avgItemPerDay )
+		avgPerDayDisplayText.text = format_num( avgItemPerDay, 2 )
+		avgPerDayDisplayText.isVisible = true
+		avgPerDayDisplayLabel.isVisible = true
+		
+		avgItemPerWeek = itemCount / ( math.floor( daysRange / 7 ) )
+		print( "avgItemPerWeek: " .. avgItemPerWeek )
+		avgPerWeekDisplayText.text = format_num( avgItemPerWeek, 2 )
+		avgPerWeekDisplayText.isVisible = true
+		avgPerWeekDisplayLabel.isVisible = true
+		
+		if daysRange > 30 then
+			avgItemPerMonth = itemCount / ( math.floor( daysRange / 30 ) )
+			print( "avgItemPerMonth: " .. avgItemPerMonth )
+			avgPerMonthDisplayText.text = format_num( avgItemPerMonth, 2 )
+			avgPerMonthDisplayText.isVisible = true
+			avgPerMonthDisplayLabel.isVisible = true
+			
+			
+			if daysRange > 365 then
+				avgItemPerYear = itemCount / ( math.floor( daysRange / 365.25 ) )
+				print( "avgItemPerYear: " .. avgItemPerYear )
+				avgPerYearDisplayText.text = format_num( avgItemPerYear, 2 )
+				avgPerYearDisplayText.isVisible = true
+				avgPerYearDisplayLabel.isVisible = true
+			end
+			
+		end
+	end
+	
+	
 	local populateData = function()
+		print( "**********POPULATE DATA**********" )
+		itemCount = 0
+		qRows = {}
 		if populateOnce then
 			populateOnce = false
-			local qRows = {}
 			--local query = [[SELECT * FROM trackitem WHERE date_created BETWEEN date( ']] .. fromDateObject.year .. '-' .. fromDateObject.month .. '-' .. fromDateObject.day .. [[' ) AND date( ']] .. toDateObject.year .. '-' .. toDateObject.month .. '-' .. toDateObject.day .. [[' ) ]]
 			local query = [[SELECT * FROM trackitem WHERE eventID=']] .. _G.event.id .. [[']]
-			print( 'populateData.query:', query )
 			for q in _G.db:nrows( query ) do
-				print( "FROMDATE:", fromDateObject.year .. "-" .. fromDateObject.month .. "-" .. fromDateObject.day )
-				print( "q.date_created: " .. q.date_created )
-				print( "TODATE: " .. toDateObject.year .. "-" .. toDateObject.month .. "-" .. toDateObject.day )
 				local qDateObject = explode( "-", q.date_created )
-				qDateObject = { year = qDateObject[1], month = qDateObject[2], day = qDateObject[3] }
-				qDateObject = os.time( qDateObject )
-				print( "FROM::diffTime: ", os.difftime( osFromDate, qDateObject ) )
-				print( "subraction: ", qDateObject - osFromDate )
-				print( "TO::diffTime: ", os.difftime( qDateObject, osToDate ) )
-				print( "subraction: ", osToDate - qDateObject )
-				print( "fromDate: " .. osFromDate )
-				print( "qDate: " .. qDateObject )
-				print( "toDate: " .. osToDate )
-				if ( qDateObject - osFromDate ) < 0 and ( osToDate - qDateObject ) > 0 then
-					qRows[ #qRows ] = q
-					print( "q.id: " .. q.id )
+				qDateObj = { year = qDateObject[1], month = qDateObject[2], day = qDateObject[3] }
+				qDateObject = os.time( qDateObj )
+				print( fromDateObject.year .. "-" .. fromDateObject.month .. "-" .. fromDateObject.day .. "....." .. qDateObj.year .. "-" ..qDateObj.month .. "-" .. qDateObj.day .. "....." .. toDateObject.year .. "-" .. toDateObject.month .. "-" .. toDateObject.day )
+				print( osFromDate .. "....." .. qDateObject .. "....." .. osToDate )
+				if ( qDateObject - osFromDate ) > 0 and ( osToDate - qDateObject ) > 0 then
+					qRows[ #qRows + 1 ] = q
 				end
+			end
+			print( "#qRows: " .. #qRows )
+			if #qRows > 0 then
+				secondRange = osToDate - osFromDate
+				for i=1, #qRows do
+					print( "qRows[ " .. i .. " ].count: " .. qRows[i].count )
+					itemCount = itemCount + qRows[i].count
+					print( "itemCount: " .. itemCount )
+				end
+				
+				noDataForDateRange.isVisible = false
+				calcMetrics()
+			else
+				needDates.isVisible = false
+				noDataForDateRange.isVisible = true
 			end
 		end
 	end
 	
 	local toPickerDoneHandler = function( event )
+		populateOnce = true
 		local selectedRows = toPicker:getValues()
 		for i=1,#selectedRows do
        		print( "[" .. selectedRows[i].index .. "]: " .. selectedRows[i].value )
@@ -212,6 +401,7 @@ new = function ()
 	end
 	
 	local fromPickerDoneHandler = function( event )
+		populateOnce = true
 		local selectedRows = fromPicker:getValues()
 		for i=1,#selectedRows do
        		print( "[" .. selectedRows[i].index .. "]: " .. selectedRows[i].value )
