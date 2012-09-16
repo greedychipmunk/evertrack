@@ -6,7 +6,7 @@ module(..., package.seeall)
 
 --[[
 
- - Version: [1.0]
+ - Version: 1.0
  - Made by: Dawson Blackhouse
  - Website: [url]
  - Mail: [mail]
@@ -39,7 +39,7 @@ new = function ()
 	
 	local function onSystemEvent( event )
 		if( event.type == "applicationExit" ) then              
-			db:close()
+			_G.db:close()
 		end
 	end
 	
@@ -47,12 +47,14 @@ new = function ()
 	
 	local background = display.newImage( "track-bg.png" )
 	local title = display.newRetinaText( "What to Track?", 0, 0, native.systemFontBold, 34 )
-	--local searchTextField = native.newTextField( 0, 0, 585, 63 )
-	--DNFL calculate height
-	local buttonBackground = display.newRoundedRect( 30, 370, 580, 485, 15 )
-	buttonBackground:setFillColor( 51, 51, 51 )
-	buttonBackground:setStrokeColor( 136, 136, 136 )
-	buttonBackground.strokeWidth = 2
+	
+	local btnDisableCatPrev = display.newImage( "button-prev-disabled.png" )
+	btnDisableCatPrev.isVisible = true
+	local btnDisableCatNext = display.newImage( "button-next-disabled.png" )
+	btnDisableCatNext.isVisible = false
+	
+	local nextCatGroupButton = {}
+	local prevCatGroupButton = {}
 	
 	local cattablesetup = [[CREATE TABLE IF NOT EXISTS trackcats (id INTEGER PRIMARY KEY autoincrement, title, position);]]
 	local catCode = _G.db:exec( cattablesetup )
@@ -61,6 +63,12 @@ new = function ()
 	local itemtablesetup = [[CREATE TABLE IF NOT EXISTS trackitem (id INTEGER PRIMARY KEY autoincrement, catID TEXT, eventID TEXT, count INTEGER, date_created TEXT, time_created TEXT);]]
 	local itemCode = _G.db:exec( itemtablesetup )
 
+	local catScrollContainer = display.newGroup()
+	local catScrollGroup = display.newGroup()
+	local catPage = 1
+	local catPageTotal = 1
+	local catsPerPage = 5
+	
 	------------------
 	-- Functions
 	------------------
@@ -78,9 +86,48 @@ new = function ()
 		end
 	end
 	
+	local nextCatGroupHandler = function ( event )
+		catScrollContainer.x = catScrollContainer.x - 320
+		catPage = catPage + 1
+		prevCatGroupButton.isVisible = true
+		if catPage >= catPageTotal then
+			catPage = catPageTotal
+			nextCatGroupButton.isVisible = false
+			btnDisableCatNext.isVisible = true
+			btnDisableCatPrev.isVisible = false
+		end
+	end
+	
+	local prevCatGroupHandler = function ( event )
+		catScrollContainer.x = catScrollContainer.x + 320
+		catPage = catPage - 1
+		if catPage <= 0 then
+			catPage = catPageTotal
+			btnDisableCatNext.isVisible = false
+			btnDisableCatPrev.isVisible  = true
+			prevCatGroupButton.isVisible = false
+			nextCatGroupButton.isVisible = true
+		end
+	end
+		
 	local showCats = function ( cats )
-		local startY = 340
+		local startY = 255
+		local padding = 300
+		local j = 2
+		local k = 1
+		catScrollGroup.x = 320
+		catPage = 0
+		catScrollContainer:insert( catScrollGroup )
+		catPageTotal = math.ceil( #cats / catsPerPage )
 		for i = 1, #cats do
+			if i % 6 == 0 then
+				j = j + 1
+				k = 1
+				catScrollGroup = display.newGroup()
+				catScrollGroup.x = ( 320 * j )
+				catScrollContainer:insert( catScrollGroup )
+			end
+			
 			cat = cats[i]
 			local b = ui.newButton {
 				defaultSrc = "button-bg.png", defaultX = 575, defaultY = 90,
@@ -88,8 +135,10 @@ new = function ()
 				onEvent = catButtonHandler, text = cat.title, 
 				size = 36, font = "Arial", id = cat.id
 			}
-			b.x = 320
-			b.y = startY + ( i * 90 )
+			--b.x = 320
+			b.y = startY + ( k * 100 )
+			catScrollGroup:insert( b )
+			k = k + 1
 		end
 	end
 	
@@ -104,13 +153,28 @@ new = function ()
 					id = "newCatButton"
 	}
 	
+	nextCatGroupButton = ui.newButton{
+					defaultSrc = "button-next-enabled.png", defaultX = 116, defaultY = 62,
+					overSrc = "button-next-disabled.png", overX = 116, overY = 62,
+					onEvent = nextCatGroupHandler,
+					id = "nextCatGroupButton"
+	}
+	
+	prevCatGroupButton = ui.newButton{
+					defaultSrc = "button-prev-enabled.png", defaultX = 116, defaultY = 62,
+					overSrc = "button-prev-disabled.png", overX = 116, overY = 62,
+					onEvent = prevCatGroupHandler,
+					id = "prevCatGroupButton"
+	}
+	
 	initVars = function()
 	
 		localGroup:insert( background )
-		localGroup:insert( buttonBackground )
 		localGroup:insert( title )
-		--localGroup:insert( searchTextField )
 		localGroup:insert( newCatButton )
+		localGroup:insert( catScrollContainer )
+		localGroup:insert( nextCatGroupButton )
+		localGroup:insert( prevCatGroupButton )
 		
 		title.x = 320
 		title.y = 90
@@ -120,7 +184,19 @@ new = function ()
 		--searchTextField.hasBackground = false
 		
 		newCatButton.x = 320
-		newCatButton.y = 300
+		newCatButton.y = 230
+		
+		nextCatGroupButton.x = 550
+		nextCatGroupButton.y = 870
+		
+		btnDisableCatNext.x = 550
+		btnDisableCatNext.y = 870
+		
+		prevCatGroupButton.x = 90
+		prevCatGroupButton.y = 870
+		prevCatGroupButton.isVisible = false
+		btnDisableCatPrev.x = 90
+		btnDisableCatPrev.y = 870
 		
 		local trackCats = {}
 		
